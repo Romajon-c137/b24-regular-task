@@ -19,3 +19,4 @@ build/
 # ОС
 .DS_Store
 Thumbs.db
+.next

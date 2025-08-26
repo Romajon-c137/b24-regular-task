@@ -1,78 +1,128 @@
-// app/api/bitrix/tasks/add/route.ts
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+import { NextResponse } from 'next/server'
 
-type AddTaskPayload = {
-  task: {
-    title: string;
-    description?: string;
-    creatorId?: string | number;
-    assignees: { id: string | number }[];
-    observers?: (string | number)[];
-    isImportant?: boolean;
-    requireResult?: boolean;
-    dueDate?: string | null;
-    checklist?: { text: string; isComplete?: boolean }[];
-  };
-  webhookBase?: string;
-};
-
-function toBitrixDeadline(localISO?: string | null): string | undefined {
-  if (!localISO) return undefined;
-  const d = new Date(localISO);
-  // формат 26.08.2025 18:00
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const s =
-    `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ` +
-    `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  return s;
+function toYN(v: any) {
+  return v ? 'Y' : 'N'
+}
+function toISOSeconds(s?: string | null) {
+  if (!s) return undefined
+  const d = new Date(s)
+  if (isNaN(d.getTime())) return undefined
+  // ISO c секундами
+  return d.toISOString().replace(/\.\d{3}Z$/, 'Z')
 }
 
+type AnyObj = Record<string, any>
+
 export async function POST(req: Request) {
-  try {
-    const body = (await req.json()) as AddTaskPayload;
-    const base = (body.webhookBase || process.env.BITRIX_WEBHOOK_BASE || "").trim();
-    if (!base) return new Response(JSON.stringify({ error: "No webhook base" }), { status: 400 });
-    const root = base.endsWith("/") ? base : base + "/";
+  const incoming = (await req.json()) as AnyObj
 
-    const { task } = body;
-    const assignees = (task.assignees || []).map((a) => a.id);
+  // поддержка двух форматов тела
+  const t: AnyObj = incoming.task ?? incoming
 
-    const results: any[] = [];
-    for (const rid of assignees.length ? assignees : [undefined]) {
-      const fields: any = {
-        TITLE: task.title || "",
-        DESCRIPTION: task.description || "",
-        RESPONSIBLE_ID: rid ? Number(rid) : undefined,
-        CREATED_BY: task.creatorId ? Number(task.creatorId) : undefined,
-        AUDITORS: (task.observers || []).map((x) => Number(x)).filter((n) => Number.isFinite(n)),
-        PRIORITY: task.isImportant ? 2 : 1,
-        TASK_CONTROL: task.requireResult ? "Y" : "N",
-      };
-      const dl = toBitrixDeadline(task.dueDate || undefined);
-      if (dl) fields.DEADLINE = dl;
+  const webhookBase =
+    (typeof incoming.webhookBase === 'string' && incoming.webhookBase) ||
+    process.env.BITRIX_WEBHOOK_BASE
 
-      const checklist = (task.checklist || []).filter((i) => i.text?.trim());
-      if (checklist.length) {
-        fields.CHECKLIST = checklist.map((i) => ({ TITLE: i.text, IS_COMPLETE: i.isComplete ? "Y" : "N" }));
-      }
+  if (!webhookBase) {
+    return NextResponse.json(
+      { error: 'BITRIX_WEBHOOK_BASE is not set' },
+      { status: 500 }
+    )
+  }
 
-      const url = root + "tasks.task.add.json";
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fields }),
-      });
-      const json = await res.json().catch(async () => ({ raw: await res.text() }));
-      if (!res.ok || json?.error) {
-        results.push({ ok: false, error: json?.error || res.status });
-      } else {
-        results.push({ ok: true, result: json.result });
-      }
+  // заголовок
+  const title: string = (t.title ?? t.TITLE ?? '').toString().trim()
+  if (!title) {
+    return NextResponse.json(
+      { error: 'VALIDATION', error_description: 'Пустое название задачи' },
+      { status: 400 }
+    )
+  }
+
+  // исполнитель/соисполнители
+  let responsibleId: number | undefined = undefined
+  let accomplices: number[] | undefined = undefined
+  if (Array.isArray(t.assignees) && t.assignees.length > 0) {
+    const ids = t.assignees
+      .map((x: any) => Number(x?.id ?? x))
+      .filter((n: any) => Number.isFinite(n))
+    if (ids.length > 0) {
+      responsibleId = ids[0]
+      if (ids.length > 1) accomplices = ids.slice(1)
     }
+  } else if (t.responsibleId != null) {
+    const n = Number(t.responsibleId)
+    if (Number.isFinite(n)) responsibleId = n
+  }
 
-    return Response.json({ ok: true, results });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message || "add failed" }), { status: 500 });
+  // наблюдатели → AUDITORS
+  const auditors: number[] | undefined = Array.isArray(t.observers)
+    ? t.observers
+        .map((x: any) => Number(x?.id ?? x))
+        .filter((n: any) => Number.isFinite(n))
+    : undefined
+
+  // приоритет
+  // isImportant: true -> PRIORITY 2 (срочная); иначе t.priority (0|1|2) либо 0
+  let priority: 0 | 1 | 2 = 0
+  if (typeof t.priority === 'number' && [0, 1, 2].includes(t.priority)) {
+    priority = t.priority
+  } else if (t.isImportant === true) {
+    priority = 2
+  }
+
+  // постановщик
+  const createdBy =
+    t.creatorId != null && Number.isFinite(Number(t.creatorId))
+      ? Number(t.creatorId)
+      : undefined
+
+  const fields: AnyObj = {
+    TITLE: title,
+    DESCRIPTION: (t.description ?? '').toString(),
+    RESPONSIBLE_ID: responsibleId,
+    ACCOMPLICES: accomplices,
+    AUDITORS: auditors,
+    PRIORITY: priority,
+    CREATED_BY: createdBy,
+    TASK_CONTROL: toYN(t.requireResult),
+  }
+
+  const deadline = toISOSeconds(t.deadline ?? t.dueDate)
+  if (deadline) fields.DEADLINE = deadline
+
+  async function call(method: string, payload: AnyObj) {
+    const url =
+      (webhookBase.endsWith('/') ? webhookBase : webhookBase + '/') +
+      method +
+      '.json'
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const data = await r.json()
+    // Bitrix кладёт ошибку в {error, error_description}
+    const ok = r.ok && !data?.error
+    return { ok, data }
+  }
+
+  try {
+    // 1) новый метод
+    let { ok, data } = await call('tasks.task.add', { fields })
+    if (!ok) {
+      // 2) старый метод: требует "data" вместо "fields"
+      const resp = await call('task.add', { data: fields })
+      if (!resp.ok) {
+        return NextResponse.json(resp.data, { status: 502 })
+      }
+      return NextResponse.json(resp.data, { status: 200 })
+    }
+    return NextResponse.json(data, { status: 200 })
+  } catch (e) {
+    return NextResponse.json(
+      { error: 'DISPATCH', error_description: 'Failed to create task in Bitrix' },
+      { status: 502 }
+    )
   }
 }

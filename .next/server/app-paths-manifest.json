@@ -1,7 +1,0 @@
-{
-  "/_not-found/page": "app/_not-found/page.js",
-  "/api/bitrix/users/route": "app/api/bitrix/users/route.js",
-  "/api/bitrix/tasks/add/route": "app/api/bitrix/tasks/add/route.js",
-  "/page": "app/page.js",
-  "/api/regular/register/route": "app/api/regular/register/route.js"
-}

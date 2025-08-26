@@ -1,58 +1,52 @@
 "use client";
 import React from "react";
-import type { Task } from "../lib/types";
-import { nextOccurrenceDaily, formatRu } from "../lib/time";
 
-export default function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
-  const nextRun = task.repeatRule?.isRecurring && task.repeatRule.timeOfDay
-    ? nextOccurrenceDaily(task.repeatRule.timeOfDay)
-    : null;
+export type Task = {
+  id: string;
+  title: string;
+  dueDate?: string | null;
+  isImportant?: boolean;
+};
+
+type Props = {
+  task: Task;
+  onOpen?: () => void;      // открыть детали
+  onDelete?: () => void;    // удалить карточку
+  onClick?: () => void;     // совместимость
+};
+
+export default function TaskCard({ task, onOpen, onDelete, onClick }: Props) {
+  const open = onOpen ?? onClick;
 
   return (
     <div
-      onClick={onClick}
-      className="w-[450px] h-[450px] bg-white rounded-2xl shadow hover:shadow-lg transition-shadow border cursor-pointer flex flex-col overflow-hidden"
+      onClick={open}
+      className="rounded-2xl border bg-white/70 ring-1 ring-black/5 p-4 shadow-sm hover:shadow-md transition cursor-pointer"
     >
-      <div className="p-4 border-b flex items-start gap-2">
-        <div className="flex-1">
-          <h4 className="font-semibold text-lg line-clamp-2">{task.title || "Без названия"}</h4>
-          <p className="text-sm text-gray-500 line-clamp-2 mt-1">{task.description}</p>
-        </div>
-        {task.repeatRule?.isRecurring && (
-          <span className="inline-block text-xs px-2 py-1 rounded-full bg-brand-100 text-brand-700">Регулярная</span>
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="text-base font-medium">{task.title || "Без названия"}</h3>
+        {onDelete && (
+          <button
+            className="text-xs text-red-600 hover:text-red-700"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            title="Удалить"
+          >
+            Удалить
+          </button>
         )}
       </div>
 
-      <div className="p-4 space-y-3 text-sm flex-1">
-        <div className="flex justify-between">
-          <span className="text-gray-500">Исполнитель</span>
-          <span className="font-medium">{task.assignee?.name || task.assignee?.email || "—"}</span>
+      {task.dueDate && (
+        <div className="mt-2 text-xs text-muted-foreground">Крайний срок: {task.dueDate}</div>
+      )}
+      {task.isImportant && (
+        <div className="mt-1 inline-block text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-700">
+          Важно
         </div>
-        <div className="flex justify-between">
-          <span className="text-gray-500">Постановщик</span>
-          <span className="">{task.creator?.name || task.creator?.email || "—"}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-500">Создана</span>
-          <span>{formatRu(new Date(task.createdAt))}</span>
-        </div>
-        {task.dueDate && (
-          <div className="flex justify-between">
-            <span className="text-gray-500">Крайний срок</span>
-            <span className="font-medium">{formatRu(new Date(task.dueDate))}</span>
-          </div>
-        )}
-        {nextRun && (
-          <div className="flex justify-between">
-            <span className="text-gray-500">Следующее создание</span>
-            <span className="font-medium">{formatRu(nextRun)}</span>
-          </div>
-        )}
-      </div>
-
-      <div className="px-4 py-3 bg-gray-50 mt-auto text-xs text-gray-600">
-        Кликните, чтобы открыть полные данные
-      </div>
+      )}
     </div>
   );
 }

@@ -1,306 +1,358 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useTasks } from "../lib/store";
-import type { Task, UserRef } from "../lib/types";
 
-const schema = z.object({
-  id: z.string().optional(),
-  title: z.string().min(1, "Введите название задачи"),
-  description: z.string().optional(),
+type UserRef = { id: string | number; email?: string; name?: string };
+type ChecklistItem = { id: string; text: string; done: boolean };
 
-  assignee: z.object({ id: z.string(), email: z.string().optional(), name: z.string().optional() }),
-  assignees: z.array(z.object({ id: z.string(), email: z.string().optional(), name: z.string().optional() })).optional(),
+type Props = {
+  webhookBase?: string;
+  onCancel?: () => void;
+  onCreated?: (task: any) => void;
+};
 
-  creator: z.object({ id: z.string(), email: z.string().optional(), name: z.string().optional() }),
-
-  coAssignees: z.array(z.object({ id: z.string(), email: z.string().optional(), name: z.string().optional() })).optional(),
-  observers:  z.array(z.object({ id: z.string(), email: z.string().optional(), name: z.string().optional() })).optional(),
-
-  isImportant: z.boolean().optional(),
-  dueDate: z.string().optional(),
-  requireResult: z.boolean().optional(),
-
-  repeatRule: z.object({
-    isRecurring: z.boolean(),
-    timeOfDay: z.string().optional(), // HH:mm
-    startsAt: z.string().optional(),  // YYYY-MM-DD
-    endsAtRaw: z.string().optional(), // YYYY-MM-DD или число
-  }),
-
-  checklist: z.array(z.object({ id: z.string(), text: z.string(), done: z.boolean() })).optional(),
-  attachments: z.array(z.object({ id: z.string(), name: z.string() })).optional(),
-});
-type FormValues = z.infer<typeof schema>;
-
-async function fetchUsers(): Promise<UserRef[]> {
-  const r = await fetch("/api/bitrix/users", { cache: "no-store" });
-  const d = await r.json();
-  if (!r.ok) throw new Error(d?.error || "Не удалось получить пользователей");
-  return d.users as UserRef[];
+function newId(prefix = "") {
+  if (typeof crypto?.randomUUID === "function") return prefix + crypto.randomUUID().slice(0, 12);
+  return prefix + Math.random().toString(36).slice(2, 10);
 }
 
-export default function TaskForm({
-  initial,
-  onSaved,
-  onCancel,
-}: { initial?: Partial<Task>; onSaved: (id: string) => void; onCancel: () => void }) {
-  const upsert = useTasks((s) => s.upsert);
-  const getById = useTasks((s) => s.getById);
-
+export default function TaskForm({ webhookBase, onCancel, onCreated }: Props) {
+  // users
   const [users, setUsers] = useState<UserRef[]>([]);
-  const [usersLoading, setUsersLoading] = useState(true);
+  const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
 
-  const defaultAssignee = useMemo<UserRef>(() => ({ id: "0", email: "", name: "Не выбран" }), []);
-  const placeholderCreator = useMemo<UserRef>(() => ({ id: "me", email: "", name: "Я" }), []);
-
-  const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      id: initial?.id,
-      title: initial?.title || "",
-      description: initial?.description || "",
-      assignee: initial?.assignee || defaultAssignee,
-      assignees: (initial as any)?.assignees || [],
-      creator: initial?.creator || placeholderCreator,
-      coAssignees: initial?.coAssignees || [],
-      observers: initial?.observers || [],
-      isImportant: initial?.isImportant || false,
-      dueDate: initial?.dueDate || "",
-      requireResult: initial?.requireResult || false,
-      repeatRule: initial?.repeatRule || { isRecurring: false, timeOfDay: "05:00" },
-      checklist: initial?.checklist || [],
-      attachments: initial?.attachments || [],
-    },
-  });
-
-  const { fields: checklistFields, append: checklistAppend, remove: checklistRemove, update: checklistUpdate } =
-    useFieldArray({ control: form.control, name: "checklist" as const });
-
-  useEffect(() => {
-    let mounted = true;
+  async function loadUsers() {
+    if (!webhookBase?.trim()) {
+      setUsers([]);
+      setUsersError("Сначала сохраните webhook");
+      return;
+    }
     setUsersLoading(true);
-    fetchUsers()
-      .then((u) => {
-        if (!mounted) return;
-        setUsers(u);
-        setUsersError(null);
-        const first = u[0];
-        if (first) {
-          const a = form.getValues("assignee");
-          if (!a?.id || a.id === "0") form.setValue("assignee", first);
-          const c = form.getValues("creator");
-          if (!c?.id || c.id === "me") form.setValue("creator", first);
-        }
-      })
-      .catch((e) => mounted && setUsersError(String(e?.message || e)))
-      .finally(() => mounted && setUsersLoading(false));
-    return () => void (mounted = false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const [pushInfo, setPushInfo] = useState<string | null>(null);
-  const [pushing, setPushing] = useState(false);
-
-  async function onSubmit(values: FormValues) {
-    setPushInfo(null);
-    setPushing(true);
-
-    const isEdit = Boolean(values.id);      // <-- ключевое: если редактирование — не создаём новую Bitrix-задачу
-    const id = useTasks.getState().upsert(values as any);
-    const saved = getById(id);
-
+    setUsersError(null);
     try {
-      if (!isEdit) {
-        const r1 = await fetch("/api/bitrix/tasks/add", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            task: saved,
-            tzOffsetMinutes: new Date().getTimezoneOffset() * -1, // передаём клиентскую TZ
-          }),
-        });
-        const d1 = await r1.json();
-        if (d1?.ok) setPushInfo(`Создано в Bitrix`);
-        else setPushInfo(`Bitrix ошибка: ${d1?.error || d1?.status}`);
-      } else {
-        setPushInfo("Сохранено локально (без создания новой задачи)");
-      }
-    } catch (e: any) {
-      setPushInfo(`Bitrix исключение: ${String(e?.message || e)}`);
+      const url = `/api/bitrix/users?webhook=${encodeURIComponent(webhookBase.trim())}`;
+      const r = await fetch(url, { cache: "no-store" });
+      const j = await r.json();
+      const arr: UserRef[] = Array.isArray(j?.result || j)
+        ? (j.result || j).map((u: any) => ({
+            id: String(u.ID ?? u.id),
+            email: u.EMAIL ?? u.email,
+            name: [u.NAME ?? u.name, u.LAST_NAME ?? u.last_name].filter(Boolean).join(" ").trim(),
+          }))
+        : [];
+      setUsers(arr);
+      if (!arr.length) setUsersError("Пользователей не найдено");
+    } catch {
+      setUsersError("Ошибка загрузки пользователей");
+      setUsers([]);
+    } finally {
+      setUsersLoading(false);
     }
-
-    // расписание можно обновлять и при редактировании (перерегистрируем)
-    try {
-      if (values.repeatRule?.isRecurring) {
-        const r2 = await fetch("/api/regular/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            task: saved,
-            tzOffsetMinutes: new Date().getTimezoneOffset() * -1,
-          }),
-        });
-        const d2 = await r2.json();
-        setPushInfo((p) => (p ? p + " • " : "") + (d2?.ok ? "Расписание зарегистрировано" : `Расписание: ошибка ${d2?.error || d2?.status}`));
-      } else {
-        await fetch("/api/regular/unregister", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id }),
-        });
-        setPushInfo((p) => (p ? p + " • " : "") + "Расписание отключено");
-      }
-    } catch (e: any) {
-      setPushInfo((p) => (p ? p + " • " : "") + `Расписание исключение: ${String(e?.message || e)}`);
-    }
-
-    setPushing(false);
-    onSaved(id);
   }
 
-  const selectedAssignee = form.watch("assignee");
-  const selectedCreator = form.watch("creator");
+  useEffect(() => {
+    loadUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [webhookBase]);
 
-  function findUserById(id: string) { return users.find((u) => u.id === id); }
+  // form state
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+
+  // постановщик
+  const [creatorId, setCreatorId] = useState<string>(""); // пусто = "я" (по вебхуку)
+
+  // исполнители (multi)
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
+  const toggleAssignee = (id: string, on: boolean) =>
+    setAssigneeIds((prev) => (on ? Array.from(new Set([...prev, id])) : prev.filter((x) => x !== id)));
+
+  const [dueDate, setDueDate] = useState<string>("");
+  const [isImportant, setIsImportant] = useState(false);
+  const [requireResult, setRequireResult] = useState(true);
+
+  // чеклист
+  const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
+  const addChecklistItem = () => setChecklist((p) => [...p, { id: newId("i_"), text: "", done: false }]);
+  const updateChecklist = (id: string, text: string) =>
+    setChecklist((p) => p.map((i) => (i.id === id ? { ...i, text } : i)));
+  const toggleChecklist = (id: string, done: boolean) =>
+    setChecklist((p) => p.map((i) => (i.id === id ? { ...i, done } : i)));
+  const removeChecklist = (id: string) => setChecklist((p) => p.filter((i) => i.id !== id));
+
+  // регулярность
+  const [isRecurring, setIsRecurring] = useState(true);
+  const [frequency, setFrequency] = useState<"daily" | "monthly">("daily");
+  const [timeOfDay, setTimeOfDay] = useState<string>("05:00");
+  const [dayOfMonth, setDayOfMonth] = useState<number>(1);
+
+  const canSubmit = useMemo(() => {
+    if (!title.trim()) return false;
+    if (!webhookBase?.trim()) return false;
+    if (isRecurring) {
+      if (!timeOfDay) return false;
+      if (frequency === "monthly" && !(dayOfMonth >= 1 && dayOfMonth <= 31)) return false;
+    }
+    return true;
+  }, [title, webhookBase, isRecurring, timeOfDay, frequency, dayOfMonth]);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canSubmit) return;
+
+    const id = newId("t_");
+    const tzOffsetMinutes = -new Date().getTimezoneOffset();
+
+    const uiTask = {
+      id,
+      title,
+      description,
+      creator: creatorId || null,
+      assignees: assigneeIds.map((id) => ({ id })),
+      createdAt: new Date().toISOString(),
+      dueDate: dueDate || null,
+      isImportant,
+      requireResult,
+      checklist: checklist.map((i) => ({ text: i.text, done: i.done })),
+      repeatRule: isRecurring
+        ? { isRecurring: true, timeOfDay, dayOfMonth: frequency === "monthly" ? dayOfMonth : undefined }
+        : { isRecurring: false },
+      tzOffsetMinutes,
+    };
+
+    const registerPayload = {
+      task: {
+        id,
+        title,
+        description,
+        creatorId: creatorId || undefined,
+        assignees: assigneeIds.map((id) => ({ id })),
+        observers: [],
+        isImportant,
+        requireResult,
+        dueDate: dueDate || null,
+        tzOffsetMinutes,
+        repeatRule: isRecurring
+          ? { isRecurring: true, timeOfDay, dayOfMonth: frequency === "monthly" ? dayOfMonth : undefined }
+          : { isRecurring: false },
+      },
+      frequency,
+      webhookBase: webhookBase?.trim() || undefined,
+    };
+
+    const addPayload = {
+      task: {
+        title,
+        description,
+        creatorId: creatorId || undefined,
+        assignees: assigneeIds.map((id) => ({ id })), // создадим для каждого
+        observers: [],
+        isImportant,
+        requireResult,
+        dueDate: dueDate || null,
+        checklist: checklist.map((i) => ({ text: i.text, isComplete: !!i.done })),
+      },
+      webhookBase: webhookBase?.trim() || undefined,
+    };
+
+    try {
+      // 1) сразу создаём задачи в B24
+      await fetch("/api/bitrix/tasks/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(addPayload),
+      });
+
+      // 2) регистрируем расписание
+      await fetch("/api/regular/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(registerPayload),
+      });
+
+      onCreated?.(uiTask);
+    } catch (err) {
+      console.error(err);
+    }
+  }
 
   return (
-    <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
-      <div className="space-y-2">
-        <label className="block text-sm font-medium">Введите название задачи</label>
-        <input type="text" className="w-full rounded-xl border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" {...form.register("title")} placeholder="Название" />
-      </div>
-
-      <div>
-        <textarea className="w-full min-h-36 rounded-xl border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-300" placeholder="Описание задачи" {...form.register("description")} />
-      </div>
-
-      <div className="flex items-center gap-3 text-sm text-gray-600">
-        <span className="px-2 py-1 rounded-lg bg-gray-100">CoPilot</span>
-        <button type="button" className="px-2 py-1 rounded-lg hover:bg-gray-100"
-          onClick={() => { const name = prompt("Текст пункта чек-листа"); if (name) { const curr = form.getValues("checklist") || []; form.setValue("checklist", [...curr, { id: crypto.randomUUID(), text: name, done: false }]); } }}>
-          Чек-лист
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm text-gray-600 mb-1">Исполнитель (основной)</label>
-          {usersLoading ? <div className="text-sm text-gray-500">Загружаю пользователей…</div> :
-           usersError ? <div className="text-sm text-red-600">Ошибка: {usersError}</div> :
-           <select className="w-full rounded-xl border px-3 py-2" value={selectedAssignee?.id || "0"}
-             onChange={(e) => form.setValue("assignee", findUserById(e.target.value) || defaultAssignee)}>
-             {[defaultAssignee, ...users].map((u) => <option key={u.id} value={u.id}>{(u.name || "").trim() || u.email || "Без имени"}</option>)}
-           </select>}
+    <form onSubmit={onSubmit} className="w-full max-w-3xl">
+      <div className="space-y-4">
+        {/* название */}
+        <div className="rounded-2xl bg-white/70 ring-1 ring-black/5 p-4 shadow-sm">
+          <label className="block text-sm text-muted-foreground mb-1">Название задачи</label>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Например: Отправить отчёт"
+            className="w-full rounded-xl border bg-white/70 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
         </div>
 
-        <div>
-          <label className="block text-sm text-gray-600 mb-1">Постановщик</label>
-          {usersLoading ? <div className="text-sm text-gray-500">Загружаю пользователей…</div> :
-           usersError ? <div className="text-sm text-red-600">Ошибка: {usersError}</div> :
-           <select className="w-full rounded-xl border px-3 py-2" value={selectedCreator?.id || "me"}
-             onChange={(e) => form.setValue("creator", findUserById(e.target.value) || placeholderCreator)}>
-             {users.map((u) => <option key={u.id} value={u.id}>{(u.name || "").trim() || u.email || "Без имени"}</option>)}
-           </select>}
+        {/* описание */}
+        <div className="rounded-2xl bg-white/70 ring-1 ring-black/5 p-4 shadow-sm">
+          <label className="block text-sm text-muted-foreground mb-1">Описание</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={4}
+            placeholder="Короткое описание задачи…"
+            className="w-full rounded-xl border bg-white/70 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
         </div>
-      </div>
 
-      {/* мульти-исполнители */}
-      <div>
-        <label className="block text-sm text-gray-600 mb-2">Исполнители (можно несколько)</label>
-        {usersLoading ? <div className="text-sm text-gray-500">Загружаю пользователей…</div> :
-         usersError ? <div className="text-sm text-red-600">Ошибка: {usersError}</div> :
-         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-           {users.map((u) => {
-             const list = form.getValues("assignees") || [];
-             const checked = !!list.find((x) => x.id === u.id);
-             return (
-               <label key={u.id} className="flex items-center gap-2 rounded-lg border px-3 py-2">
-                 <input
-                   type="checkbox"
-                   checked={checked}
-                   onChange={(e) => {
-                     const curr = form.getValues("assignees") || [];
-                     const next = e.target.checked ? [...curr, u] : curr.filter((x: any) => x.id !== u.id);
-                     form.setValue("assignees", next);
-                     if (next.length > 0) form.setValue("assignee", next[0]); else form.setValue("assignee", defaultAssignee);
-                   }}
-                 />
-                 <span>{u.name || u.email || "Без имени"}</span>
-               </label>
-             );
-           })}
-         </div>}
-      </div>
+        {/* постановщик + исполнители */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="rounded-2xl bg-white/70 ring-1 ring-black/5 p-4 shadow-sm md:col-span-1">
+            <div className="text-sm font-medium mb-2">Постановщик</div>
+            <select
+              value={creatorId}
+              onChange={(e) => setCreatorId(e.target.value)}
+              className="w-full rounded-xl border bg-white/70 px-3 py-2"
+            >
+              <option value="">Я (по вебхуку)</option>
+              {users.map((u) => (
+                <option key={String(u.id)} value={String(u.id)}>
+                  {u.name || u.email || `ID ${u.id}`}
+                </option>
+              ))}
+            </select>
+          </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm text-gray-600 mb-1">Крайний срок</label>
-          <input type="datetime-local" className="w-full rounded-xl border px-3 py-2" {...form.register("dueDate")} />
-        </div>
-        <div className="flex items-center gap-2 mt-6">
-          <input type="checkbox" className="size-4" {...form.register("isImportant")} />
-          <span>Это важная задача</span>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border p-4 space-y-4">
-        <div className="flex items-center gap-3">
-          <input type="checkbox" className="size-4" {...form.register("repeatRule.isRecurring")} />
-          <span className="font-medium">Сделать задачу регулярной</span>
-          <span className="ml-auto text-xs text-gray-500">Повторение: каждый день</span>
-        </div>
-        {form.watch("repeatRule.isRecurring") && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Время создания задачи</label>
-              <input type="time" className="w-full rounded-xl border px-3 py-2" {...form.register("repeatRule.timeOfDay")} />
+          <div className="rounded-2xl bg-white/70 ring-1 ring-black/5 p-4 shadow-sm md:col-span-2">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium">Исполнители</div>
+              <button type="button" onClick={loadUsers} className="text-xs text-indigo-600 hover:text-indigo-700">
+                Обновить список
+              </button>
             </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Начинать повторение (поле)</label>
-              <input type="date" className="w-full rounded-xl border px-3 py-2" {...form.register("repeatRule.startsAt")} />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Повторять до (поле)</label>
-              <input type="text" placeholder="например, без даты окончания" className="w-full rounded-xl border px-3 py-2" {...form.register("repeatRule.endsAtRaw")} />
+
+            {usersLoading && <div className="text-sm text-muted-foreground">Загрузка…</div>}
+            {usersError && <div className="text-sm text-red-600">{usersError}</div>}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-auto pr-1">
+              {users.map((u) => (
+                <label key={String(u.id)} className="flex items-center gap-3 rounded-xl border px-3 py-2 hover:bg-indigo-50 transition">
+                  <input
+                    type="checkbox"
+                    className="size-4 rounded accent-indigo-600"
+                    checked={assigneeIds.includes(String(u.id))}
+                    onChange={(e) => toggleAssignee(String(u.id), e.target.checked)}
+                  />
+                  <span className="text-sm">{u.name || u.email || `ID ${u.id}`}</span>
+                </label>
+              ))}
+              {!usersLoading && users.length === 0 && !usersError && (
+                <div className="text-sm text-muted-foreground">Нет данных пользователей</div>
+              )}
             </div>
           </div>
-        )}
-      </div>
-
-      {/* чек-лист локально */}
-      {checklistFields.length > 0 && (
-        <div>
-          <div className="text-sm text-gray-600 mb-1">Чек-лист</div>
-          <ul className="space-y-2">
-            {checklistFields.map((item, i) => (
-              <li key={item.id} className="flex items-center gap-2">
-                <input type="checkbox" className="size-4"
-                  checked={form.getValues(`checklist.${i}.done`)}
-                  onChange={(e) => checklistUpdate(i, { ...item, done: e.target.checked })}
-                />
-                <input className="flex-1 rounded-lg border px-3 py-1"
-                  value={form.getValues(`checklist.${i}.text`)}
-                  onChange={(e) => checklistUpdate(i, { ...item, text: e.target.value })}
-                />
-                <button type="button" className="text-red-600 hover:underline" onClick={() => checklistRemove(i)}>Удалить</button>
-              </li>
-            ))}
-          </ul>
         </div>
-      )}
 
-      {pushInfo && <div className="text-sm text-gray-600">{pushInfo}</div>}
+        {/* дедлайн и флаги */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="rounded-2xl bg-white/70 ring-1 ring-black/5 p-4 shadow-sm">
+            <label className="block text-sm text-muted-foreground mb-1">Крайний срок</label>
+            <input
+              type="datetime-local"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full rounded-xl border bg-white/70 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
 
-      <div className="flex justify-end gap-3 pt-2">
-        <button type="button" onClick={onCancel} className="px-4 py-2 rounded-xl border hover:bg-gray-50">Отмена</button>
-        <button type="submit" disabled={pushing} className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
-          {pushing ? "Сохраняю..." : "Сохранить"}
-        </button>
+          <label className="rounded-2xl bg-white/70 ring-1 ring-black/5 p-4 shadow-sm flex items-center gap-3">
+            <input
+              type="checkbox"
+              className="size-4 rounded accent-indigo-600"
+              checked={isImportant}
+              onChange={(e) => setIsImportant(e.target.checked)}
+            />
+            Важная задача
+          </label>
+
+          <label className="rounded-2xl bg-white/70 ring-1 ring-black/5 p-4 shadow-sm flex items-center gap-3">
+            <input
+              type="checkbox"
+              className="size-4 rounded accent-indigo-600"
+              checked={requireResult}
+              onChange={(e) => setRequireResult(e.target.checked)}
+            />
+            Требовать результат
+          </label>
+        </div>
+
+        {/* регулярность */}
+        <div className="rounded-2xl bg-white/70 ring-1 ring-black/5 p-4 shadow-sm space-y-3">
+          <label className="inline-flex items-center gap-3">
+            <input
+              type="checkbox"
+              className="size-4 rounded accent-indigo-600"
+              checked={isRecurring}
+              onChange={(e) => setIsRecurring(e.target.checked)}
+            />
+            <span className="font-medium">Сделать задачу регулярной</span>
+          </label>
+
+          {isRecurring && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Частота</div>
+                <select value={frequency} onChange={(e) => setFrequency(e.target.value as any)} className="w-full rounded-xl border bg-white/70 px-3 py-2">
+                  <option value="daily">Каждый день</option>
+                  <option value="monthly">Каждый месяц</option>
+                </select>
+              </div>
+
+              {frequency === "monthly" && (
+                <div>
+                  <div className="text-sm text-muted-foreground mb-1">День месяца</div>
+                  <input
+                    type="number" min={1} max={31}
+                    value={dayOfMonth}
+                    onChange={(e) => setDayOfMonth(Math.max(1, Math.min(31, parseInt(e.target.value || "1", 10))))}
+                    className="w-full rounded-xl border bg-white/70 px-3 py-2"
+                  />
+                </div>
+              )}
+
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Время создания</div>
+                <input type="time" value={timeOfDay} onChange={(e) => setTimeOfDay(e.target.value)} className="w-full rounded-xl border bg-white/70 px-3 py-2" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* чек-лист */}
+        <div className="rounded-2xl bg-white/70 ring-1 ring-black/5 p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-medium">Чек-лист</div>
+            <button type="button" onClick={addChecklistItem} className="text-sm text-indigo-600 hover:text-indigo-700">
+              + добавить пункт
+            </button>
+          </div>
+          <div className="space-y-2">
+            {checklist.map((i) => (
+              <div key={i.id} className="flex items-center gap-3">
+                <input type="checkbox" checked={i.done} onChange={(e) => toggleChecklist(i.id, e.target.checked)} className="size-4 rounded accent-indigo-600" />
+                <input value={i.text} onChange={(e) => updateChecklist(i.id, e.target.value)} placeholder="Текст пункта…" className="flex-1 rounded-xl border bg-white/70 px-3 py-2" />
+                <button type="button" onClick={() => removeChecklist(i.id)} className="text-sm text-muted-foreground hover:text-red-600">удалить</button>
+              </div>
+            ))}
+            {checklist.length === 0 && <div className="text-sm text-muted-foreground">Пусто</div>}
+          </div>
+        </div>
+
+        {/* footer */}
+        <div className="flex items-center justify-end gap-3 pt-1">
+          <button type="button" onClick={onCancel} className="rounded-2xl border px-4 py-2 hover:bg-gray-50">Отмена</button>
+          <button type="submit" disabled={!canSubmit} className="rounded-2xl bg-indigo-600 text-white px-5 py-2.5 shadow-sm hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed">
+            Создать
+          </button>
+        </div>
       </div>
     </form>
   );

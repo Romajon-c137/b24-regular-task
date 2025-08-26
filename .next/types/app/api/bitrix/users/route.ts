@@ -1,4 +1,4 @@
-// File: C:\Users\Roma\Desktop\b24-regular-task\app\api\bitrix\users\route.ts
+// File: /Users/user/Desktop/b24-regular-task/app/api/bitrix/users/route.ts
 import * as entry from '../../../../../../app/api/bitrix/users/route.js'
 import type { NextRequest } from 'next/server.js'
 

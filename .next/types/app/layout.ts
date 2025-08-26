@@ -1,4 +1,4 @@
-// File: C:\Users\Roma\Desktop\b24-regular-task\app\layout.tsx
+// File: /Users/user/Desktop/b24-regular-task/app/layout.tsx
 import * as entry from '../../../app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

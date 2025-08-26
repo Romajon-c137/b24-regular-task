@@ -1,4 +1,4 @@
-// File: C:\Users\Roma\Desktop\b24-regular-task\app\page.tsx
+// File: /Users/user/Desktop/b24-regular-task/app/page.tsx
 import * as entry from '../../../app/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useMemo, useState } from "react";
 import Modal from "../components/Modal";
 import TaskForm from "../components/TaskForm";
@@ -13,7 +14,10 @@ export default function Page() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
-  const detailTask = useMemo(() => (detailId ? getById(detailId) : undefined), [detailId, getById]);
+  const detailTask = useMemo(
+    () => (detailId && !detailId.startsWith("edit:") ? getById(detailId) : undefined),
+    [detailId, getById]
+  );
 
   return (
     <main className="container-page py-10">
@@ -33,7 +37,7 @@ export default function Page() {
         ))}
       </div>
 
-      {/* Create / Edit modal */}
+      {/* Модалка создания */}
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Создать задачу" size="xl">
         <TaskForm
           onSaved={(id) => {
@@ -44,7 +48,7 @@ export default function Page() {
         />
       </Modal>
 
-      {/* Detail modal */}
+      {/* Модалка деталей */}
       <Modal
         open={!!detailTask}
         onClose={() => setDetailId(null)}
@@ -62,11 +66,16 @@ export default function Page() {
                 Редактировать
               </button>
               <button
-                onClick={() => {
-                  if (confirm("Удалить задачу?")) {
-                    remove(detailTask.id);
-                    setDetailId(null);
-                  }
+                onClick={async () => {
+                  if (!confirm("Удалить задачу?")) return;
+                  // Снимаем расписание ТОЛЬКО при удалении
+                  await fetch("/api/regular/unregister", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: detailTask.id }),
+                  });
+                  remove(detailTask.id);
+                  setDetailId(null);
                 }}
                 className="px-4 py-2 rounded-xl bg-red-600 text-white hover:bg-red-700"
               >
@@ -77,8 +86,13 @@ export default function Page() {
         )}
       </Modal>
 
-      {/* Edit modal (re-use form) */}
-      <Modal open={typeof detailId === "string" && detailId.startsWith("edit:")} onClose={() => setDetailId(null)} title="Редактировать задачу" size="xl">
+      {/* Модалка редактирования */}
+      <Modal
+        open={typeof detailId === "string" && detailId.startsWith("edit:")}
+        onClose={() => setDetailId(null)}
+        title="Редактировать задачу"
+        size="xl"
+      >
         {typeof detailId === "string" && detailId.startsWith("edit:") && (
           <TaskForm
             initial={getById(detailId.slice(5))}

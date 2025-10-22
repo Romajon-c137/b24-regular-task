@@ -1,35 +1,36 @@
-# Regular Tasks MVP (Next.js + Tailwind)
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-Фронтенд «как в Bitrix», 1 страница, создание задач + регулярность *каждый день* и работа с локальным хранилищем.
+## Getting Started
 
-## Быстрый старт
+First, run the development server:
 
 ```bash
-npm i
-cp .env.local.example .env.local
 npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-Открой `http://localhost:3000`.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-### Переменные окружения
-- `BITRIX_WEBHOOK_BASE` — базовый вебхук Bitrix24 **со слэшем в конце**, например:  
-  `https://prolab.bitrix24.kz/rest/1/z4ku56vjgume9i2n/`
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-Фронтенд берёт список пользователей по адресу `/api/bitrix/users` (серверный прокси), который ходит в Bitrix `user.get.json`.
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## Что уже есть
-- Одна страница `/` с кнопкой «Создать».
-- Модалка с формой (название, описание, исполнитель, постановщик, важность, крайний срок, чек‑лист, псевдо‑вложения).
-- Чек‑лист: добавление пунктов и отметка готовности.
-- «Сделать задачу регулярной»: только **каждый день**, поле **Время создания задачи** (`HH:mm`), «Начинать повторение» и «Повторять до» — пока как поля без логики.
-- Карточка 450×450 со сводкой (название, исполнитель, постановщик, дата создания, дедлайн и *следующее создание* при регулярке).
-- Клик по карточке → попап с полными данными + **Редактировать**/**Удалить**.
-- Данные хранятся в `localStorage` (`tasks_v1`).
+## Learn More
 
-## Дальше (бек и расширения)
-- Реальная генерация экземпляров по расписанию (бек‑крон/воркер).
-- Синхронизация с Bitrix (создание задач в портале).
-- Продвинутые правила повторов (неделя/месяц/год).
-- Прикрепление реальных файлов.
-- Аутентификация пользователя и реальные «Постановщик/Исполнитель».
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

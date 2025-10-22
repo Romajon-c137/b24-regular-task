@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Коммерческое предложение — JARVIS</title>
+  <style>
+    :root {
+      --blue: #1f4ca1;
+      --blue-600: #21459a;
+      --blue-100: #eef3ff;
+      --orange: #ff7a00;
+      --text: #0f172a;
+      --muted: #495266;
+      --border: #e6e9f2;
+      --ok: #1aa26b;
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      color: var(--text);
+      font: 16px/1.55 system-ui, -apple-system, Segoe UI, Roboto, Arial
+    }
+
+    .page {
+      max-width: 95%;
+      margin: 0 auto;
+      padding: 28px 28px 40px;
+      background: #fff;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo {
+      width: 86px;
+      height: 86px;
+      object-fit: contain;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: #fff;
+    }
+
+    .brand-title {
+      font-weight: 800;
+      font-size: 20px;
+      letter-spacing: .4px;
+      color: var(--blue)
+    }
+
+    .brand-sub {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 2px
+    }
+
+    .header-right {
+      margin-left: auto;
+      text-align: right
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--blue-100);
+      color: var(--blue);
+      font-weight: 700;
+      font-size: 12px
+    }
+
+    /* Title */
+    .title {
+      margin: 22px 0 8px;
+      font-size: 28px;
+      line-height: 1.2;
+      color: var(--blue)
+    }
+
+    .subtitle {
+      color: var(--muted)
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap: 18px;
+      margin-top: 18px
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      background: #fff
+    }
+
+    .list {
+      margin: 0;
+      padding: 0;
+      list-style: none
+    }
+
+    .list li {
+      margin: 6px 0;
+      padding-left: 22px;
+      position: relative
+    }
+
+    .list li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 4px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: conic-gradient(var(--ok) 0 100%, transparent 0);
+      mask: radial-gradient(white 7px, transparent 7px) center/14px 14px no-repeat;
+      border: 1px solid #cfeede;
+    }
+
+    .logos {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px;
+      margin-top: 8px
+    }
+
+    .logo-box {
+      height: 40px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fafbff
+    }
+
+    /* Sections */
+    h3 {
+      margin: 18px 0 10px;
+      font-size: 18px;
+      color: var(--text)
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: var(--orange);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700
+    }
+
+    /* Pricing */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px
+    }
+
+    .price-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border)
+    }
+
+    .price-table th,
+    .price-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top
+    }
+
+    .price-table thead th {
+      background: var(--blue-100);
+      color: var(--blue);
+      font-weight: 800;
+      text-align: left;
+      white-space: nowrap
+    }
+
+    .price-table tr:last-child td {
+      border-bottom: 0
+    }
+
+    .muted {
+      color: var(--muted)
+    }
+
+    .total {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+      padding: 14px 16px;
+      border: 2px dashed var(--orange);
+      border-radius: 12px;
+      background: #fffaf5;
+      font-weight: 800
+    }
+
+    /* Proposal block (autofill) */
+    .autofill {
+      border: 2px solid var(--blue);
+      background: linear-gradient(180deg, #f7f9ff, #fff);
+      border-radius: 16px;
+      padding: 16px
+    }
+
+    .af-row {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 10px;
+      margin: 6px 0
+    }
+
+    .kbd {
+      display: inline-block;
+      background: #f1f5ff;
+      border: 1px solid #cfe1ff;
+      border-bottom-width: 2px;
+      border-radius: 6px;
+      padding: 2px 6px;
+      font-weight: 700;
+      color: var(--blue)
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: 22px;
+      padding-top: 16px;
+      border-top: 2px solid var(--border);
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      justify-content: space-between
+    }
+
+    .foot-left {
+      color: var(--muted);
+      font-size: 12px
+    }
+
+    .qr {
+      width: 84px;
+      height: 84px;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 11px
+    }
+
+    /* Team photo block */
+    .team {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      background: #bdbbb9;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .team img {
+      display: block;
+      width: 100%;
+      height: 210px;
+      object-fit: cover
+    }
+
+    /* Print */
+    @page {
+      size: A4;
+      margin: 16mm
+    }
+
+    @media print {
+      .page {
+        padding: 0;
+        max-width: 95%;
+      }
+
+      .header {
+        border-bottom: 0
+      }
+    }
+
+    /* ===== Catalog (only this block updated) ===== */
+    .catalog-col-1 {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px
+    }
+
+    /* вертикально */
+    [data-service] {
+      display: none
+    }
+
+    /* изначально скрыто; JS включит нужные */
+    .num {
+      white-space: nowrap;
+      text-align: right
+    }
+
+    /* цифры не переносятся */
+  </style>
+</head>
+
+<body>
+  <main class="page">
+    <!-- HEADER -->
+    <section class="header">
+      <div class="brand">
+        <img class="brand-logo" src="https://static.tildacdn.one/tild6437-3465-4365-b861-663135643932/JARVIS_BT.png"
+          alt="JARVIS logo" />
+        <div>
+          <div class="brand-title">JARVIS — бизнес инструменты</div>
+          <div class="brand-sub">Интегратор digital-решений №1 в Кыргызстане</div>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="badge">Коммерческое предложение</div>
+        <div class="muted" style="margin-top:6px;">для компании: <b>{{ $json.client_company }}</b></div>
+        <div class="muted">дата: <b>{{ $json.date }}</b></div>
+      </div>
+    </section>
+
+    <!-- TITLE -->
+    <h1 class="title">Решение для {{ $json.client_company }}</h1>
+
+    <!-- ABOUT + TEAM -->
+    <section class="kv">
+      <div class="card">
+        <h3>О компании JARVIS</h3>
+        <ul class="list">
+          <li>8+ лет внедрения CRM и цифровых систем</li>
+          <li>400+ успешных проектов, официальный партнёр Bitrix24 и amoCRM</li>
+          <li>Экспертиза: CRM и IP-телефония, автоматизация процессов, ИИ-ассистенты</li>
+          <li>Интеграции: WhatsApp, Instagram, Telegram, почта и др.</li>
+        </ul>
+        <h3 style="margin-top:14px;">Почему выбирают нас</h3>
+        <ul class="list">
+          <li>Комплексные решения под ключ</li>
+          <li>Прозрачные условия и гарантии</li>
+          <li>Индивидуальный подход и поддержка</li>
+        </ul>
+      </div>
+      <div class="team">
+        <img src="https://i.ibb.co/PG3Z53Gc/AU9-A0378-1.jpg" alt="Наша команда">
+      </div>
+    </section>
+
+    <!-- STAGES -->
+    <section class="card" style="margin-top:16px;">
+      <h3>Этапы внедрения</h3>
+      <div class="grid-2">
+        <ul class="list">
+          <li>Аудит бизнес-процессов</li>
+          <li>ТЗ и настройка системы</li>
+        </ul>
+        <ul class="list">
+          <li>Обучение сотрудников</li>
+          <li>Безопасность и поддержка</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===== CATALOG ONLY (vertical & dynamic) ===== -->
+    <section style="margin-top:16px;">
+      <h3><span class="pill">Каталог услуг и базовые цены</span></h3>
+      <div class="catalog-col-1">
+
+        <!-- Bitrix24 -->
+        <div class="card" id="service-bitrix" data-service="Bitrix24">
+          <h3 style="color:var(--blue)">Bitrix24 — внедрение</h3>
+          <table class="price-table">
+            <thead>
+              <tr>
+                <th>Тариф</th>
+                <th class="num">Стоимость</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Старт+</td>
+                <td class="num">50 000 сом</td>
+              </tr>
+              <tr>
+                <td>Бизнес</td>
+                <td class="num">70 000 сом</td>
+              </tr>
+              <tr>
+                <td>Индивидуальный</td>
+                <td class="text-center">Аудит и ТЗ — от <span class="num">800 $</span>; Внедрение по ТЗ — от <span class="num">800 $</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h4 style="margin:12px 0 6px;">Bitrix24 — лицензии</h4>
+          <table class="price-table">
+            <thead>
+              <tr>
+                <th>План</th>
+                <th>Лимит сотрудников</th>
+                <th class="num">Месяц</th>
+                <th class="num">Год (скидка -20%)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Базовый</td>
+                <td>до 5</td>
+                <td class="num">2 200 сом</td>
+                <td class="num">21 120 сом</td>
+              </tr>
+              <tr>
+                <td>Стандартный</td>
+                <td>до 50</td>
+                <td class="num">6 800 сом</td>
+                <td class="num">65 280 сом</td>
+              </tr>
+              <tr>
+                <td>Профессиональный</td>
+                <td>до 100</td>
+                <td class="num">13 400 сом</td>
+                <td class="num">128 640 сом</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- amoCRM -->
+        <div class="card" id="service-amocrm" data-service="amoCRM">
+          <h3 style="color:var(--blue)">amoCRM — внедрение</h3>
+          <table class="price-table">
+            <thead>
+              <tr>
+                <th>Тариф</th>
+                <th>Условия</th>
+                <th class="num">Стоимость</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Старт+</td>
+                <td>до 5 сотрудников</td>
+                <td class="num">50 000 сом</td>
+              </tr>
+              <tr>
+                <td>Бизнес</td>
+                <td>от 5 сотрудников</td>
+                <td class="num">70 000 сом</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h4 style="margin:12px 0 6px;">amoCRM — лицензии</h4>
+          <table class="price-table">
+            <thead>
+              <tr>
+                <th>План</th>
+                <th>Срок</th>
+                <th class="num">Стоимость</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Расширенный</td>
+                <td>6 мес + 1 мес в подарок</td>
+                <td class="num">7 253 сом</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Altegio / МойСклад / ПланФакт / Profitbase -->
+        <div class="card" id="service-altegio" data-service="Altegio">
+          <h3 style="color:var(--blue)">Altegio / МойСклад / ПланФакт / Profitbase</h3>
+          <table class="price-table">
+            <thead>
+              <tr>
+                <th>Работы</th>
+                <th class="num">Лицензии</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Внедрение — от <span class="num">50 000 сом</span></td>
+                <td class="num">от 1 500 сом</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Телефония -->
+        <div class="card" id="service-telephony" data-service="Telephony">
+          <h3 style="color:var(--blue)">Телефония</h3>
+          <table class="price-table">
+            <thead>
+              <tr>
+                <th>Тип</th>
+                <th class="num">Внедрение</th>
+                <th class="num">Абонплата</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>АТС-телефония</td>
+                <td class="num">от 20 000 сом</td>
+                <td class="num">800 сом/сотр. в мес <span class="muted">(цены уточняются)</span></td>
+              </tr>
+              <tr>
+                <td>Android-телефония</td>
+                <td class="num">от 10 000 сом</td>
+                <td class="num">300 сом/сотр. в мес</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ИИ-бот -->
+        <div class="card" id="service-aibot" data-service="AIbot">
+          <h3 style="color:var(--blue)">ИИ-бот</h3>
+          <table class="price-table">
+            <thead>
+              <tr>
+                <th>Работы</th>
+                <th class="num">Поддержка</th>
+                <th class="num">Токены</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Внедрение и настройка — <span class="num">600 $</span></td>
+                <td class="num">4 000 сом/мес</td>
+                <td class="num">10 $</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Лицензии для интеграций -->
+        <div class="card" id="service-integrations" data-service="Integrations">
+          <h3 style="color:var(--blue)">Лицензии для интеграций</h3>
+          <table class="price-table">
+            <thead>
+              <tr>
+                <th>Интеграция</th>
+                <th class="num">Месяц</th>
+                <th class="num">Год (скидка -20%)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>WhatsApp — 1 номер</td>
+                <td class="num">4 400 сом</td>
+                <td class="num">42 240 сом</td>
+              </tr>
+              <tr>
+                <td>Instagram — 1 страница</td>
+                <td class="num">2 200 сом</td>
+                <td class="num">21 120 сом</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </section>
+    <!-- ===== END CATALOG ===== -->
+
+    <!-- CLIENT-SPECIFIC PROPOSAL (AUTO-FILL BLOCK) — как было -->
+    <section style="margin-top:16px;">
+      <h3><span class="pill">Предложение для {{ $json.client_company }}</span></h3>
+      <div class="autofill">
+        <div class="af-row">
+          <div class="kbd">Продукт</div>
+          <div>{{ $json.solution_product }}</div>
+        </div>
+        <div class="af-row">
+          <div class="kbd">Тариф/план</div>
+          <div>{{ $json.solution_plan }}</div>
+        </div>
+        <div class="af-row">
+          <div class="kbd">Пользователи</div>
+          <div>{{ $json.users_count }}</div>
+        </div>
+        <div class="af-row">
+          <div class="kbd">Интеграции</div>
+          <div>{{ $json.integrations }}</div>
+        </div>
+        <div class="af-row">
+          <div class="kbd">Срок внедрения</div>
+          <div>{{ $json.delivery_time }}</div>
+        </div>
+        <div class="af-row">
+          <div class="kbd">Комментарий</div>
+          <div>{{ $json.notes }}</div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-top:12px;">
+        <div class="card">
+          <h3 style="color:var(--blue)">Стоимость работ</h3>
+          <table class="price-table">
+            <thead>
+              <tr>
+                <th>Статья</th>
+                <th class="num">Сумма</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Внедрение/настройка</td>
+                <td class="num">{{ $json.price_impl }}</td>
+              </tr>
+              <tr>
+                <td>Лицензии (месяц)</td>
+                <td class="num">{{$json.price_license}}</td>
+              </tr>
+              <tr>
+                <td>Интеграции</td>
+                <td class="num">{{$json.price_integrations}}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="total"><span>ИТОГО: </span><span class="num">{{$json.price_total}}</span></div>
+          <div class="muted" style="margin-top:8px;">* Финальные суммы зависят от выбранного функционала и количества
+            пользователей.</div>
+        </div>
+
+        <div class="card">
+          <h3 style="color:var(--blue)">Следующие шаги</h3>
+          <ul class="list">
+            <li>Подтверждаете состав решения и бюджет</li>
+            <li>Мы формируем договор и план внедрения</li>
+            <li>Запускаем проект и обучаем сотрудников</li>
+          </ul>
+          <div style="margin-top:10px;">
+            Контакт менеджера: <b>Аяна </b><br />
+            Тел: <b>+996 998 550 550</b> • Email: <b>sales@jarvis.kg</b>
+          </div>
+        </div>
+      </div>
+    </section>
+<div id="services-data" style="display:none;">
+  {{ $json.services }}
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="foot-left">
+    © JARVIS, 2025 • www.jarvis.kg • +996 998 550 550 • info@jarvis.kg
+  </div>
+  <img class="qr" src="{{qr_src}}" alt="QR" 
+       onerror="this.outerHTML='<div class=&quot;qr&quot;>QR</div>'" />
+</footer>
+</main>
+
+<!-- Only catalog visibility logic -->
+<script>
+  (function () {
+    const raw = document.getElementById("services-data").innerText.trim();
+    let services = ["Altegio"];
+
+    if (raw.length) {
+      // тут теперь строка типа "Bitrix24, Telephony, Integrations"
+      services = raw.split(/[;,]/).map(s => s.trim()).filter(Boolean);
+    }
+
+    const map = {
+      "Bitrix24": "service-bitrix",
+      "amoCRM": "service-amocrm",
+      "Altegio": "service-altegio",
+      "Telephony": "service-telephony",
+      "AIbot": "service-aibot",
+      "Integrations": "service-integrations"
+    };
+
+    // Скрываем всё
+    document.querySelectorAll('[data-service]').forEach(el => el.style.display = 'none');
+
+    // Показываем только выбранные
+    services.forEach(name => {
+      const id = map[name];
+      if (!id) return;
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'block';
+    });
+
+    // ДОРАБОТКА: если Bitrix24 или amoCRM → всегда добавляем блок интеграций
+    if (services.includes("Bitrix24") || services.includes("amoCRM")) {
+      const el = document.getElementById(map["Integrations"]);
+      if (el) el.style.display = "block";
+    }
+  })();
+</script>
+
+
+</body>
+
+</html>

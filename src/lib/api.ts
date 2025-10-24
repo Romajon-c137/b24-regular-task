@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-namespace */
+
 // src/lib/api.ts
 import { getToken, getWebhook } from "./auth";
 

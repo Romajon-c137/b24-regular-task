@@ -44,7 +44,12 @@ export default function LoginForm() {
   };
 
   return (
-    <form onSubmit={onSubmit} className="bx-form" style={{ maxWidth: 360 }}>
+    <div className="" style={{width:"100%", height:"100vh", display:"flex", flexDirection:"column", justifyContent:"center", alignItems:"center"
+
+    }}>
+      <h1 style={{color:"#fff"}}>Smart House</h1>
+
+    <form onSubmit={onSubmit} className="bx-form" style={{ maxWidth: "360px", width: "95%", backgroundColor:"#fff", padding:"30px", borderRadius:"22px"}}>
       <div className="bx-field">
         <label className="bx-label">Телефон</label>
         <input className="bx-input" value={phone} onChange={(e) => setPhone(e.target.value)} />
@@ -58,5 +63,6 @@ export default function LoginForm() {
         {loading ? "Вход…" : "Войти"}
       </button>
     </form>
+    </div>
   );
 }

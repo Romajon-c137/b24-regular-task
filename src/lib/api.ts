@@ -1,14 +1,15 @@
 // src/lib/api.ts
 import { getToken, getWebhook } from "./auth";
 
-/** ---------- AUTH (login) ---------- */
-const LOGIN_URL =
-  process.env.NEXT_PUBLIC_LOGIN_URL ||
-  "http://smarthouse.website/api/v1/auth/login/";
-
-const CSRF =
-  process.env.NEXT_PUBLIC_CSRF ||
-  "ISIUYR9rjiHk14PNueIboHiNRvu42BuJuFhaSZkSFNRWDYYxgaVf3Vh7H7NOOjNQ";
+declare global {
+  namespace NodeJS {
+    interface ProcessEnv {
+      NEXT_PUBLIC_LOGIN_URL: string;
+      NEXT_PUBLIC_TASKS_URL: string;
+    }
+  }
+}
+const LOGIN_URL = process.env.NEXT_PUBLIC_LOGIN_URL 
 
 export type LoginBody = { phone: string; password: string };
 export type LoginResp = { token?: string; webhook?: string; [k: string]: unknown };
@@ -18,11 +19,6 @@ export async function postLogin(
 ): Promise<{ ok: boolean; status: number; data: LoginResp | null }> {
   const res = await fetch(LOGIN_URL, {
     method: "POST",
-    headers: {
-      accept: "application/json",
-      "Content-Type": "application/json",
-      "X-CSRFTOKEN": CSRF,
-    },
     body: JSON.stringify(body),
   });
 
@@ -36,9 +32,7 @@ export async function postLogin(
 }
 
 /** ---------- TASKS API ---------- */
-const TASKS_URL =
-  process.env.NEXT_PUBLIC_TASKS_URL ||
-  "http://192.168.0.125:8000/api/v1/tasks/";
+const TASKS_URL = process.env.NEXT_PUBLIC_TASKS_URL
 
 /** Bitrix users (через webhook) */
 export type BitrixUser = {

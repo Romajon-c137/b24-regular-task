@@ -21,6 +21,7 @@ export async function postLogin(
 ): Promise<{ ok: boolean; status: number; data: LoginResp | null }> {
   const res = await fetch(LOGIN_URL, {
     method: "POST",
+    headers: { accept: "application/json", "Content-Type": "application/json"},
     body: JSON.stringify(body),
   });
 

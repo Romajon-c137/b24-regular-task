@@ -182,7 +182,7 @@ export default function CreateTaskForm({ onSuccess }: Props) {
       </div>
 
       <div className="bx-field">
-        <label className="bx-label">Постановщик (creator_by) *</label>
+        <label className="bx-label">Постановщик *</label>
         <select
           className="bx-select"
           value={creatorId}
@@ -264,9 +264,7 @@ export default function CreateTaskForm({ onSuccess }: Props) {
             <option value="days">Каждый день</option>
             <option value="month">Каждый месяц</option>
           </select>
-          {repeatType !== "none" && (
-            <div className="bx-help">Интервал повтора: <b>1</b></div>
-          )}
+
         </div>
       </div>
 
@@ -319,13 +317,14 @@ export default function CreateTaskForm({ onSuccess }: Props) {
 
       <div className="bx-field">
         <div className="bx-label">Чек-лист</div>
-        <div className="bx-inline">
+        <div className="bx-inline" >
           <input
             className="bx-input"
             type="text"
             value={newCheck}
             placeholder="Новый пункт…"
             onChange={(e) => setNewCheck(e.target.value)}
+            style={{width:"100%"}}
           />
           <button
             type="button"

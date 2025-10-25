@@ -153,6 +153,8 @@ export default function CreateTaskForm({ onSuccess }: Props) {
     } finally {
       setSubmitting(false);
     }
+    window.location.reload(); // ✅ просто обновляем страницу
+
   };
 
   return (
